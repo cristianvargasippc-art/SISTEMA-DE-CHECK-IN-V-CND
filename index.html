@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V CND - Sistema de Acreditacion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#07090F;--bg2:#0D1018;--bg3:#111520;--bg4:#161B2C;
+  --teal:#00D4C8;--teal2:#00FFEF;--tdim:rgba(0,212,200,.10);--tglow:rgba(0,212,200,.22);
+  --white:#FFF;--g1:#374151;--g2:#6B7280;--g3:#9CA3AF;
+  --surf:rgba(255,255,255,.03);--brd:rgba(255,255,255,.07);--brdt:rgba(0,212,200,.22);
+  --ok:#10B981;--err:#EF4444;--warn:#F59E0B;--purple:#8B5CF6;
+  --fd:'Exo 2',sans-serif;--fb:'Rajdhani',sans-serif;
+  --nh:60px;--r:10px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--fb);background:var(--bg);color:var(--white);min-height:100vh;overflow-x:hidden;}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--nh);background:rgba(7,9,15,.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--brdt);display:flex;align-items:center;padding:0 24px;gap:16px;}
+.nav-brand{font-family:var(--fd);font-size:20px;font-weight:900;color:var(--white);letter-spacing:3px;cursor:pointer;display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.nav-brand span{background:linear-gradient(135deg,var(--teal),var(--teal2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-ico{width:26px;height:26px;border:1.5px solid var(--teal);border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative;}
+.nav-ico::before,.nav-ico::after{content:'';position:absolute;width:6px;height:6px;border-color:var(--teal);border-style:solid;}
+.nav-ico::before{top:-2px;left:-2px;border-width:2px 0 0 2px;}
+.nav-ico::after{bottom:-2px;right:-2px;border-width:0 2px 2px 0;}
+.nav-links{display:flex;gap:2px;flex:1;}
+.nav-link{font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g2);padding:5px 12px;border-radius:6px;border:none;background:none;cursor:pointer;transition:all .2s;}
+.nav-link:hover,.nav-link.active{color:var(--teal);background:var(--tdim);}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.nav-badge{background:var(--tdim);border:1px solid var(--brdt);color:var(--teal);font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:1.5px;padding:4px 13px;border-radius:99px;}
+.nav-live{display:flex;align-items:center;gap:6px;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--ok);}
+.nav-live-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* ── SETUP BANNER ── */
+.setup-banner{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.06));border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:16px 20px;margin-bottom:24px;display:flex;align-items:flex-start;gap:14px;}
+.setup-banner-icon{font-size:20px;flex-shrink:0;margin-top:1px;}
+.setup-banner h4{font-family:var(--fd);font-size:15px;font-weight:800;color:var(--warn);letter-spacing:.5px;margin-bottom:4px;}
+.setup-banner p{font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;}
+.setup-banner code{font-size:12px;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;color:var(--teal);font-family:monospace;}
+
+/* ── VIEWS ── */
+.view{display:none;padding-top:var(--nh);min-height:100vh;}
+.view.active{display:block;animation:fadeUp .3s ease;}
+#view-home{display:none;}
+#view-home.active{display:flex;flex-direction:column;}
+#view-checkin{display:none;}
+#view-checkin.active{display:flex;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── HERO ── */
+#view-home{background:var(--bg);position:relative;overflow:hidden;min-height:100vh;align-items:center;justify-content:center;}
+.h-grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(0,212,200,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,200,.035) 1px,transparent 1px);background-size:48px 48px;}
+.h-g1{position:absolute;width:600px;height:450px;top:-160px;right:-160px;pointer-events:none;background:radial-gradient(ellipse,rgba(0,212,200,.13) 0%,transparent 70%);}
+.h-g2{position:absolute;width:400px;height:320px;bottom:-60px;left:-80px;pointer-events:none;background:radial-gradient(ellipse,rgba(0,80,200,.1) 0%,transparent 70%);}
+.h-scan{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent);opacity:.3;animation:scan 7s ease-in-out infinite;}
+@keyframes scan{0%{top:8%;opacity:0;}15%{opacity:.3;}85%{opacity:.3;}100%{top:92%;opacity:0;}}
+.h-cards{position:absolute;inset:0;pointer-events:none;}
+.hc{position:absolute;width:190px;background:rgba(11,14,22,.88);border:1px solid rgba(0,212,200,.14);backdrop-filter:blur(10px);border-radius:10px;padding:14px;}
+.hc-logo{font-family:var(--fd);font-size:11px;font-weight:800;color:var(--teal);letter-spacing:3px;margin-bottom:10px;}
+.hc-name{font-family:var(--fd);font-size:13px;font-weight:700;color:var(--white);margin-bottom:3px;}
+.hc-reg{font-size:9px;color:var(--g2);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.hc-line{height:1px;background:linear-gradient(90deg,var(--teal),transparent);margin-bottom:8px;opacity:.3;}
+.hc-st{display:inline-block;font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 9px;border-radius:4px;}
+.hc-st.ok{background:rgba(16,185,129,.12);color:#34D399;border:1px solid rgba(16,185,129,.2);}
+.hc-st.pend{background:var(--tdim);color:var(--teal);border:1px solid var(--brdt);}
+@keyframes hf1{0%,100%{transform:translateY(0) rotate(-2deg);}50%{transform:translateY(-20px) rotate(-2deg);}}
+@keyframes hf2{0%,100%{transform:translateY(-10px) rotate(1.5deg);}50%{transform:translateY(14px) rotate(1.5deg);}}
+@keyframes hf3{0%,100%{transform:translateY(0) rotate(3deg);}60%{transform:translateY(-16px) rotate(3deg);}}
+@keyframes hf4{0%,100%{transform:translateY(-6px) rotate(-1deg);}50%{transform:translateY(12px) rotate(-1deg);}}
+.hc:nth-child(1){left:2%;top:18%;animation:hf1 7s ease-in-out infinite;}
+.hc:nth-child(2){right:2%;top:22%;animation:hf2 8s ease-in-out infinite 1.5s;}
+.hc:nth-child(3){left:3%;bottom:14%;animation:hf3 9s ease-in-out infinite .8s;}
+.hc:nth-child(4){right:3%;bottom:20%;animation:hf4 6.5s ease-in-out infinite 2s;}
+.h-content{position:relative;z-index:2;text-align:center;padding:60px 32px;display:flex;flex-direction:column;align-items:center;gap:16px;}
+.h-eyebrow{font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:6px;color:var(--teal);text-transform:uppercase;display:flex;align-items:center;gap:12px;}
+.h-eyebrow::before,.h-eyebrow::after{content:'';display:block;width:24px;height:1px;background:var(--teal);opacity:.5;}
+.h-trophy{width:74px;height:74px;border:1.5px solid rgba(0,212,200,.28);border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;}
+.h-trophy::before,.h-trophy::after{content:'';position:absolute;width:12px;height:12px;border-color:var(--teal);border-style:solid;}
+.h-trophy::before{top:-2px;left:-2px;border-width:2px 0 0 2px;}
+.h-trophy::after{bottom:-2px;right:-2px;border-width:0 2px 2px 0;}
+.h-v{font-family:var(--fd);font-size:clamp(100px,17vw,200px);font-weight:900;line-height:.85;color:var(--white);}
+.h-cnd{font-family:var(--fd);font-size:clamp(42px,7vw,86px);font-weight:900;line-height:.9;background:linear-gradient(135deg,var(--teal),var(--teal2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:8px;}
+.h-name{font-family:var(--fd);font-size:clamp(11px,1.7vw,15px);font-weight:600;letter-spacing:4px;color:rgba(255,255,255,.28);text-transform:uppercase;}
+.h-div{width:44px;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent);}
+.h-stats{display:flex;gap:40px;}
+.hst{text-align:center;}
+.hst-num{font-family:var(--fd);font-size:36px;font-weight:900;background:linear-gradient(135deg,var(--white),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.hst-lbl{font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--g2);margin-top:3px;}
+
+/* ── BUTTONS ── */
+.btn{font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:11px 24px;border-radius:6px;border:none;cursor:pointer;transition:all .2s;text-decoration:none;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;}
+.btn-teal{background:linear-gradient(135deg,var(--teal),#009E95);color:var(--bg);}
+.btn-teal:hover{box-shadow:0 0 24px var(--tglow);transform:translateY(-2px);}
+.btn-outline{background:transparent;color:var(--teal);border:1.5px solid rgba(0,212,200,.35);}
+.btn-outline:hover{border-color:var(--teal);background:var(--tdim);}
+.btn-ghost{background:var(--surf);color:var(--g3);border:1px solid var(--brd);}
+.btn-ghost:hover{background:rgba(255,255,255,.07);color:var(--white);}
+.btn-green{background:var(--ok);color:var(--white);}
+.btn-green:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.btn-warn{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.3);}
+.btn-warn:hover{background:rgba(245,158,11,.25);}
+.btn-sm{font-size:10px;padding:6px 14px;}
+.btn-xs{font-size:10px;padding:5px 11px;}
+.h-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+
+/* ── PAGE HEADER ── */
+.page-header{background:var(--bg2);border-bottom:1px solid var(--brdt);padding:30px 40px 26px;}
+.page-header-inner{max-width:1240px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+.ph-left{}
+.page-eyebrow{font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:4px;color:var(--teal);text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:9px;}
+.page-eyebrow::before{content:'';width:16px;height:1px;background:var(--teal);}
+.page-title{font-family:var(--fd);font-size:36px;font-weight:900;color:var(--white);letter-spacing:2px;}
+.ph-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* ── CONTAINERS ── */
+.wrap{max-width:1240px;margin:0 auto;padding:32px 24px;}
+.wrap-sm{max-width:740px;margin:0 auto;padding:32px 24px;}
+
+/* ── UPLOAD ── */
+.upload-box{border:1.5px dashed rgba(0,212,200,.22);border-radius:var(--r);padding:48px;text-align:center;background:var(--bg3);cursor:pointer;transition:all .3s;position:relative;overflow:hidden;}
+.upload-box::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,var(--tdim) 0%,transparent 70%);opacity:0;transition:opacity .3s;}
+.upload-box:hover,.upload-box.drag{border-color:var(--teal);}
+.upload-box:hover::before,.upload-box.drag::before{opacity:1;}
+.upload-icon{width:56px;height:56px;background:var(--tdim);border:1px solid var(--brdt);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+.upload-title{font-family:var(--fd);font-size:20px;font-weight:800;margin-bottom:7px;letter-spacing:1px;}
+.upload-sub{color:var(--g2);font-size:13px;line-height:1.6;}
+.upload-hint{margin-top:22px;padding:15px 19px;background:rgba(0,212,200,.05);border-radius:var(--r);border:1px solid rgba(0,212,200,.12);}
+.upload-hint h4{font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--teal);margin-bottom:10px;}
+.col-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.col-tag{font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:1px;padding:4px 12px;background:rgba(0,212,200,.07);color:var(--teal);border:1px solid rgba(0,212,200,.16);border-radius:4px;text-transform:uppercase;}
+#file-input{display:none;}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--brd);}
+table{width:100%;border-collapse:collapse;background:var(--bg3);}
+thead tr{background:rgba(0,212,200,.05);border-bottom:1px solid var(--brdt);}
+thead th{font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--teal);padding:11px 15px;text-align:left;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--brd);transition:background .15s;}
+tbody tr:hover{background:rgba(255,255,255,.025);}
+tbody td{padding:11px 15px;font-size:13px;color:var(--g3);}
+tbody td:first-child{color:var(--white);font-weight:500;}
+
+/* ── BADGE ── */
+.badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 10px;border-radius:4px;}
+.bdg-ok{background:rgba(16,185,129,.1);color:#34D399;border:1px solid rgba(16,185,129,.2);}
+.bdg-warn{background:rgba(245,158,11,.08);color:#FBD94F;border:1px solid rgba(245,158,11,.18);}
+.bdg-teal{background:var(--tdim);color:var(--teal);border:1px solid var(--brdt);}
+.bdg-err{background:rgba(239,68,68,.1);color:#F87171;border:1px solid rgba(239,68,68,.2);}
+.badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:13px;margin-bottom:26px;}
+.sc{background:var(--bg3);border:1px solid var(--brd);border-radius:var(--r);padding:19px 22px;position:relative;overflow:hidden;transition:border-color .2s;}
+.sc:hover{border-color:rgba(0,212,200,.2);}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.sc.c1::before{background:linear-gradient(90deg,var(--teal),transparent);}
+.sc.c2::before{background:linear-gradient(90deg,var(--ok),transparent);}
+.sc.c3::before{background:linear-gradient(90deg,var(--warn),transparent);}
+.sc.c4::before{background:linear-gradient(90deg,var(--purple),transparent);}
+.sc.c5::before{background:linear-gradient(90deg,var(--teal2),transparent);}
+.sc-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--g2);margin-bottom:6px;}
+.sc-num{font-family:var(--fd);font-size:38px;font-weight:900;line-height:1;color:var(--white);}
+.sc-sub{font-size:10px;color:var(--g2);margin-top:4px;}
+
+/* ── SEARCH/FILTER BAR ── */
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+.searchbox{flex:1;min-width:200px;display:flex;align-items:center;background:var(--bg3);border:1px solid var(--brd);border-radius:8px;padding:0 12px;gap:8px;transition:border-color .2s;}
+.searchbox:focus-within{border-color:var(--brdt);}
+.searchbox input{border:none;outline:none;font-family:var(--fb);font-size:13px;color:var(--white);background:transparent;padding:9px 0;width:100%;}
+.searchbox input::placeholder{color:var(--g2);}
+select.fsel{font-family:var(--fb);font-size:12px;padding:8px 12px;border:1px solid var(--brd);border-radius:8px;background:var(--bg3);color:var(--g3);cursor:pointer;outline:none;transition:border-color .2s;}
+select.fsel:focus{border-color:var(--brdt);}
+.name-btn{background:none;border:none;cursor:pointer;font-family:var(--fb);font-size:13px;font-weight:600;color:var(--teal);padding:0;text-align:left;transition:opacity .2s;}
+.name-btn:hover{opacity:.7;}
+
+/* ── REAL-TIME INDICATOR ── */
+.rt-bar{background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.04));border:1px solid rgba(16,185,129,.2);border-radius:var(--r);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:22px;}
+.rt-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;animation:pulse 2s infinite;}
+.rt-text{font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:1px;color:var(--ok);}
+.rt-sub{font-family:var(--fb);font-size:12px;color:var(--g2);margin-left:auto;}
+
+/* ── CHECKIN PAGE ── */
+#view-checkin{background:var(--bg);min-height:100vh;align-items:center;justify-content:center;padding:var(--nh) 20px 40px;position:relative;overflow:hidden;}
+#view-checkin::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,200,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,200,.03) 1px,transparent 1px);background-size:40px 40px;}
+.ci-card{background:var(--bg3);border:1px solid var(--brdt);border-radius:16px;max-width:400px;width:100%;overflow:hidden;box-shadow:0 0 60px rgba(0,212,200,.1);position:relative;z-index:1;}
+.ci-top{background:linear-gradient(135deg,var(--bg2),var(--bg4));border-bottom:1px solid var(--brdt);padding:22px;text-align:center;position:relative;overflow:hidden;}
+.ci-top::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top,var(--tdim) 0%,transparent 70%);}
+.ci-logo{font-family:var(--fd);font-size:26px;font-weight:900;color:var(--white);letter-spacing:4px;position:relative;z-index:1;}
+.ci-logo span{background:linear-gradient(135deg,var(--teal),var(--teal2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ci-sys{font-family:var(--fd);font-size:9px;font-weight:600;letter-spacing:3px;color:var(--g2);text-transform:uppercase;margin-top:4px;position:relative;z-index:1;}
+.ci-body{padding:24px;text-align:center;}
+.ci-qr{width:110px;height:110px;margin:0 auto 16px;border:1px solid var(--brdt);border-radius:9px;overflow:hidden;background:var(--white);}
+.ci-qr img{width:100%;height:100%;display:block;}
+.ci-name{font-family:var(--fd);font-size:20px;font-weight:900;color:var(--white);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.ci-rows{margin:12px 0 18px;}
+.ci-row{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(255,255,255,.025);border:1px solid var(--brd);border-radius:6px;margin-bottom:5px;font-size:12px;}
+.ci-row .lbl{color:var(--g2);font-size:9px;letter-spacing:1px;text-transform:uppercase;}
+.ci-row .val{font-weight:600;color:var(--g3);}
+
+/* Check-in states */
+.ci-scanning{text-align:center;padding:8px 0;}
+.ci-scan-ring{width:70px;height:70px;border-radius:50%;border:2px solid var(--teal);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;position:relative;animation:ring 1.5s ease-in-out infinite;}
+@keyframes ring{0%,100%{box-shadow:0 0 0 0 rgba(0,212,200,.4);}50%{box-shadow:0 0 0 16px rgba(0,212,200,0);}}
+.ci-scan-lbl{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--teal);letter-spacing:2px;margin-bottom:4px;}
+.ci-scan-sub{font-size:11px;color:var(--g2);}
+
+.ci-success{text-align:center;padding:8px 0;}
+.ci-ok-ring{width:70px;height:70px;border-radius:50%;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;animation:popIn .5s cubic-bezier(.175,.885,.32,1.275);}
+@keyframes popIn{from{transform:scale(0);}to{transform:scale(1);}}
+.ci-ok-title{font-family:var(--fd);font-size:24px;font-weight:900;color:var(--ok);letter-spacing:2px;margin-bottom:5px;}
+.ci-ok-sub{font-size:12px;color:var(--g2);}
+.ci-ok-time{font-size:11px;color:var(--g1);margin-top:6px;}
+
+.ci-already{text-align:center;padding:8px 0;}
+.ci-already-icon{width:66px;height:66px;border-radius:50%;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.ci-already-title{font-family:var(--fd);font-size:20px;font-weight:900;color:var(--warn);letter-spacing:1px;margin-bottom:5px;}
+.ci-already-sub{font-size:12px;color:var(--g2);}
+
+.ci-error{text-align:center;padding:8px 0;}
+.ci-error-title{font-family:var(--fd);font-size:18px;font-weight:800;color:var(--err);letter-spacing:1px;margin-bottom:5px;}
+.ci-error-sub{font-size:12px;color:var(--g2);}
+
+/* ── QR VIEW ── */
+.qr-card{background:var(--bg3);border:1px solid var(--brdt);border-radius:14px;overflow:hidden;box-shadow:0 0 40px rgba(0,212,200,.08);max-width:480px;margin:0 auto;}
+.qr-head{background:linear-gradient(135deg,var(--bg2),var(--bg4));border-bottom:1px solid var(--brdt);padding:24px;text-align:center;position:relative;overflow:hidden;}
+.qr-head::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top,var(--tdim) 0%,transparent 70%);}
+.qr-logo{font-family:var(--fd);font-size:30px;font-weight:900;color:var(--white);letter-spacing:4px;position:relative;z-index:1;}
+.qr-logo span{background:linear-gradient(135deg,var(--teal),var(--teal2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.qr-sub{font-family:var(--fd);font-size:10px;font-weight:600;letter-spacing:3px;color:var(--g2);text-transform:uppercase;margin-top:5px;position:relative;z-index:1;}
+.qr-body{padding:24px;text-align:center;}
+.qr-img{display:inline-block;padding:12px;background:var(--white);border-radius:9px;margin-bottom:18px;}
+.qr-img img{display:block;width:210px;height:210px;}
+.qr-pname{font-family:var(--fd);font-size:22px;font-weight:900;color:var(--white);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.qr-det{font-size:12px;color:var(--g2);margin-bottom:3px;}
+.qr-det strong{color:var(--g3);}
+.qr-div{height:1px;background:var(--brd);margin:16px 0;}
+.qr-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.qr-url{margin-top:14px;padding:9px 12px;background:var(--bg2);border:1px solid var(--brd);border-radius:6px;font-size:9px;color:var(--g2);text-align:left;font-family:monospace;word-break:break-all;}
+
+/* ── EMAILS ── */
+.cfg-card{background:var(--bg3);border:1px solid rgba(0,212,200,.16);border-radius:var(--r);padding:22px 24px;margin-bottom:22px;position:relative;overflow:hidden;}
+.cfg-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--teal),transparent);}
+.cfg-card h3{font-family:var(--fd);font-size:16px;font-weight:800;letter-spacing:1px;margin-bottom:4px;color:var(--white);}
+.cfg-card p{font-size:12px;color:var(--g2);margin-bottom:14px;line-height:1.6;}
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg label{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g2);}
+.fg input{font-family:var(--fb);font-size:13px;padding:9px 12px;border:1px solid var(--brd);border-radius:7px;color:var(--white);background:var(--bg2);outline:none;transition:border-color .2s;}
+.fg input:focus{border-color:var(--brdt);}
+.fg input::placeholder{color:var(--g1);}
+.email-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:12px;align-items:center;padding:11px 16px;background:var(--bg3);border:1px solid var(--brd);border-radius:8px;margin-bottom:6px;transition:border-color .2s;}
+.email-row:hover{border-color:rgba(0,212,200,.12);}
+.ern{font-weight:700;font-size:13px;color:var(--white);}
+.erd{font-size:11px;color:var(--g2);}
+.prog-wrap{background:rgba(255,255,255,.05);border-radius:4px;height:5px;margin-top:7px;overflow:hidden;}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--teal),var(--teal2));border-radius:4px;transition:width .4s;}
+.bulk-bar{background:linear-gradient(135deg,var(--bg4),var(--bg3));border:1px solid var(--brdt);border-radius:var(--r);padding:15px 22px;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+.bulk-bar-info h4{font-family:var(--fd);font-size:15px;font-weight:800;letter-spacing:1px;color:var(--white);}
+.bulk-bar-info p{font-size:11px;color:var(--g2);margin-top:2px;}
+
+/* ── MODAL ── */
+.modal-ov{display:none;position:fixed;inset:0;z-index:500;background:rgba(7,9,15,.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;}
+.modal-ov.open{display:flex;}
+.modal{background:var(--bg3);border:1px solid var(--brdt);border-radius:14px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 0 60px rgba(0,212,200,.08);}
+.modal-head{background:var(--bg2);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;border-bottom:1px solid var(--brdt);}
+.modal-head h3{font-family:var(--fd);font-size:17px;font-weight:800;color:var(--white);letter-spacing:2px;}
+.modal-close{background:rgba(255,255,255,.05);border:1px solid var(--brd);color:var(--g3);font-size:14px;width:30px;height:30px;border-radius:6px;cursor:pointer;}
+.modal-body{padding:24px;}
+
+/* ── EXPORT SECTION ── */
+.export-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:18px;}
+.export-card{background:var(--bg3);border:1px solid var(--brd);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s;}
+.export-card:hover{border-color:rgba(0,212,200,.2);}
+.export-card-top{display:flex;align-items:center;gap:10px;}
+.export-card-ico{width:36px;height:36px;background:rgba(16,185,129,.1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.export-card-name{font-family:var(--fd);font-size:13px;font-weight:700;color:var(--white);letter-spacing:.5px;}
+.export-card-count{font-size:11px;color:var(--g2);}
+
+/* ── NOTIFICATIONS ── */
+.notif{position:fixed;bottom:20px;right:20px;z-index:600;background:var(--bg4);color:var(--white);padding:11px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.4);border-left:3px solid var(--teal);animation:notifIn .3s ease;max-width:300px;font-family:var(--fd);letter-spacing:.5px;}
+.notif.ok{border-left-color:var(--ok);}
+.notif.err{border-left-color:var(--err);}
+@keyframes notifIn{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── MISC ── */
+.empty-st{text-align:center;padding:60px 20px;color:var(--g2);}
+.empty-st p{font-size:14px;margin-bottom:18px;}
+.sec-title{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:1px;margin-bottom:16px;color:var(--white);}
+.back-btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g2);cursor:pointer;margin-bottom:22px;border:none;background:none;transition:color .2s;}
+.back-btn:hover{color:var(--teal);}
+.preview-sec{margin-top:28px;}
+.preview-sec h3{font-family:var(--fd);font-size:17px;font-weight:800;letter-spacing:1px;margin-bottom:13px;color:var(--white);}
+.divider{height:1px;background:var(--brd);margin:20px 0;}
+
+/* ── FIREBASE SETUP ── */
+.fb-setup{background:var(--bg2);border:1px solid var(--brdt);border-radius:var(--r);padding:20px 24px;margin-bottom:24px;}
+.fb-setup h4{font-family:var(--fd);font-size:14px;font-weight:800;color:var(--teal);letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.fb-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
+.fb-connected{display:flex;align-items:center;gap:8px;font-family:var(--fd);font-size:12px;font-weight:700;color:var(--ok);letter-spacing:1px;}
+
+@media(max-width:768px){
+  nav{padding:0 10px;gap:6px;}
+  .nav-link{font-size:10px;padding:4px 7px;}
+  .page-header{padding:20px 16px 16px;}
+  .page-title{font-size:26px;}
+  .h-v{font-size:90px;}
+  .h-cards{display:none;}
+  .email-row{grid-template-columns:1fr;}
+  .export-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand" onclick="navigate('home')">
+    <div class="nav-ico">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--teal)"><path d="M6 9H4.5a2.5 2.5 0 010-5H6m12 5h1.5a2.5 2.5 0 000-5H18M8 3h8v13H8zm-2 13h12M12 16v5m-4 0h8"/></svg>
+    </div>
+    V<span>CND</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-link" onclick="navigate('home')">Inicio</button>
+    <button class="nav-link" onclick="navigate('upload')">Cargar</button>
+    <button class="nav-link" onclick="navigate('dashboard')">Dashboard</button>
+    <button class="nav-link" onclick="navigate('emails')">Correos</button>
+    <button class="nav-link" onclick="navigate('export')">Exportar</button>
+  </div>
+  <div class="nav-right">
+    <div class="nav-live" id="nav-live" style="display:none"><div class="nav-live-dot"></div>EN VIVO</div>
+    <div class="nav-badge" id="nav-count">0 Registrados</div>
+  </div>
+</nav>
+
+<!-- ===================== HOME ===================== -->
+<section class="view" id="view-home">
+  <div class="h-grid"></div>
+  <div class="h-g1"></div><div class="h-g2"></div>
+  <div class="h-scan"></div>
+  <div class="h-cards">
+    <div class="hc"><div class="hc-logo">V CND</div><div class="hc-name">MARIA R. PEREZ</div><div class="hc-reg">Regional 10 - Santiago</div><div class="hc-line"></div><div class="hc-st ok">Acreditado</div></div>
+    <div class="hc"><div class="hc-logo">V CND</div><div class="hc-name">JOSE A. REYES</div><div class="hc-reg">Regional 15 - El Seibo</div><div class="hc-line"></div><div class="hc-st pend">Pendiente</div></div>
+    <div class="hc"><div class="hc-logo">V CND</div><div class="hc-name">ANA M. SANTOS</div><div class="hc-reg">Regional 06 - La Vega</div><div class="hc-line"></div><div class="hc-st ok">Acreditado</div></div>
+    <div class="hc"><div class="hc-logo">V CND</div><div class="hc-name">PEDRO L. GUZMAN</div><div class="hc-reg">Regional 01 - D. Nacional</div><div class="hc-line"></div><div class="hc-st ok">Acreditado</div></div>
+  </div>
+  <div class="h-content">
+    <div class="h-eyebrow">Sistema de Acreditacion en Tiempo Real</div>
+    <div class="h-trophy"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--teal)"><path d="M6 9H4.5a2.5 2.5 0 010-5H6m12 5h1.5a2.5 2.5 0 000-5H18M8 3h8v13H8zm-2 13h12M12 16v5m-4 0h8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="h-v">V</div>
+    <div class="h-cnd">CND</div>
+    <div class="h-name">V Campeonato Nacional de Debate</div>
+    <div class="h-div"></div>
+    <div style="font-family:var(--fd);font-size:9px;letter-spacing:2.5px;color:var(--g1);text-transform:uppercase">Ministerio de Educacion de la Republica Dominicana</div>
+    <div class="h-actions">
+      <button class="btn btn-teal" onclick="navigate('upload')">Cargar Participantes</button>
+      <button class="btn btn-outline" onclick="navigate('dashboard')">Ver Dashboard</button>
+    </div>
+    <div class="h-stats">
+      <div class="hst"><div class="hst-num" id="hs-total">0</div><div class="hst-lbl">Registrados</div></div>
+      <div class="hst"><div class="hst-num" id="hs-ci">0</div><div class="hst-lbl">Acreditados</div></div>
+      <div class="hst"><div class="hst-num" id="hs-pend">0</div><div class="hst-lbl">Pendientes</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== UPLOAD ===================== -->
+<section class="view" id="view-upload">
+  <div class="page-header"><div class="page-header-inner"><div class="ph-left"><div class="page-eyebrow">V Campeonato Nacional de Debate</div><div class="page-title">Cargar Participantes</div></div></div></div>
+  <div class="wrap-sm">
+    <!-- Firebase Config -->
+    <div class="fb-setup" id="fb-setup-box">
+      <h4>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Configuracion Firebase (Base de Datos en Tiempo Real)
+      </h4>
+      <p style="font-size:12px;color:var(--g2);margin-bottom:14px;line-height:1.6">
+        Para sincronizar check-ins en tiempo real entre dispositivos necesita Firebase.<br>
+        1. Cree un proyecto en <strong style="color:var(--teal)">console.firebase.google.com</strong><br>
+        2. Active <strong style="color:var(--teal)">Realtime Database</strong> en modo prueba<br>
+        3. Copie su configuracion aqui:
+      </p>
+      <div class="fb-fields">
+        <div class="fg"><label>API Key</label><input type="text" id="fb-apikey" placeholder="AIzaSy..."></div>
+        <div class="fg"><label>Auth Domain</label><input type="text" id="fb-domain" placeholder="proyecto.firebaseapp.com"></div>
+        <div class="fg"><label>Database URL</label><input type="text" id="fb-dburl" placeholder="https://proyecto-default-rtdb.firebaseio.com"></div>
+        <div class="fg"><label>Project ID</label><input type="text" id="fb-pid" placeholder="mi-proyecto-vcnd"></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-teal btn-sm" onclick="initFirebase()">Conectar Firebase</button>
+        <button class="btn btn-ghost btn-sm" onclick="useLocalMode()">Usar modo local (sin tiempo real)</button>
+      </div>
+      <div id="fb-status" style="margin-top:12px;font-size:12px;color:var(--g2)"></div>
+    </div>
+
+    <div class="upload-box" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-icon">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="color:var(--teal)"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="upload-title">Seleccionar Archivo Excel</div>
+      <div class="upload-sub">Haga clic aqui o arrastre su archivo .xlsx o .xls</div>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+    <div class="upload-hint">
+      <h4>Columnas Requeridas</h4>
+      <div class="col-tags">
+        <span class="col-tag">Nombre Completo</span><span class="col-tag">Regional Educativa</span>
+        <span class="col-tag">Nombre Del Equipo</span><span class="col-tag">Correo</span>
+      </div>
+    </div>
+    <div class="preview-sec" id="preview-sec" style="display:none">
+      <h3>Vista Previa — <span id="preview-count">0</span> detectados</h3>
+      <div class="tbl-wrap" id="preview-tbl"></div>
+      <div style="margin-top:14px;display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn btn-teal" onclick="confirmUpload()">Confirmar y Guardar</button>
+        <button class="btn btn-ghost" onclick="cancelUpload()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DASHBOARD ===================== -->
+<section class="view" id="view-dashboard">
+  <div class="page-header">
+    <div class="page-header-inner">
+      <div class="ph-left"><div class="page-eyebrow">V Campeonato Nacional de Debate</div><div class="page-title">Dashboard en Tiempo Real</div></div>
+      <div class="ph-actions">
+        <button class="btn btn-ghost btn-sm" onclick="navigate('export')">Exportar Excel</button>
+        <button class="btn btn-teal btn-sm" onclick="navigate('upload')">+ Cargar</button>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="rt-bar" id="rt-indicator">
+      <div class="rt-dot"></div>
+      <div class="rt-text">ACTUALIZACION EN TIEMPO REAL</div>
+      <div class="rt-sub" id="rt-last">Esperando datos...</div>
+    </div>
+    <div class="stats-grid" id="dash-stats"></div>
+    <div class="toolbar">
+      <div class="searchbox">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--g2);flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
+        <input type="text" id="search-input" placeholder="Buscar nombre, regional, equipo..." oninput="renderTable()">
+      </div>
+      <select class="fsel" id="filter-reg" onchange="renderTable()"><option value="">Todas las Regionales</option></select>
+      <select class="fsel" id="filter-st" onchange="renderTable()">
+        <option value="">Todos los estados</option>
+        <option value="ok">Acreditado</option>
+        <option value="pend">Pendiente</option>
+      </select>
+    </div>
+    <div id="dash-tbl"></div>
+  </div>
+</section>
+
+<!-- ===================== QR VIEW ===================== -->
+<section class="view" id="view-qr">
+  <div class="wrap">
+    <button class="back-btn" onclick="navigate('dashboard')">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 12H5m0 0l7 7m-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Volver al Dashboard
+    </button>
+    <div id="qr-content"></div>
+  </div>
+</section>
+
+<!-- ===================== CHECK-IN ===================== -->
+<section class="view" id="view-checkin">
+  <div id="checkin-content"></div>
+</section>
+
+<!-- ===================== EMAILS ===================== -->
+<section class="view" id="view-emails">
+  <div class="page-header"><div class="page-header-inner"><div class="ph-left"><div class="page-eyebrow">V Campeonato Nacional de Debate</div><div class="page-title">Envio de Correos</div></div></div></div>
+  <div class="wrap" style="max-width:960px">
+    <div class="cfg-card">
+      <h3>Configuracion EmailJS</h3>
+      <p>Cuenta gratuita en emailjs.com — 200 correos/mes gratis. Sus datos se guardan localmente.</p>
+      <div class="cfg-grid">
+        <div class="fg"><label>Public Key</label><input type="text" id="ejs-key" placeholder="user_xxxxxxxxxxxx"></div>
+        <div class="fg"><label>Service ID</label><input type="text" id="ejs-service" placeholder="service_xxxxxxx"></div>
+        <div class="fg"><label>Template ID</label><input type="text" id="ejs-template" placeholder="template_xxxxxxx"></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-teal btn-sm" onclick="saveEmailConfig()">Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="showModal('tpl-modal')">Ver Plantilla HTML</button>
+      </div>
+    </div>
+    <div class="bulk-bar">
+      <div class="bulk-bar-info"><h4>Enviar QR a Todos los Participantes</h4><p>Se enviara el QR personalizado a cada correo registrado</p></div>
+      <button class="btn btn-teal" onclick="sendAllEmails()">Enviar a Todos</button>
+    </div>
+    <div id="email-prog" style="display:none;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;font-weight:600;color:var(--g3)">Enviando correos...</span><span style="font-size:11px;color:var(--g2)" id="eprog-txt">0/0</span></div>
+      <div class="prog-wrap"><div class="prog-bar" id="eprog-bar" style="width:0%"></div></div>
+    </div>
+    <div id="email-list"></div>
+  </div>
+</section>
+
+<!-- ===================== EXPORT ===================== -->
+<section class="view" id="view-export">
+  <div class="page-header">
+    <div class="page-header-inner">
+      <div class="ph-left"><div class="page-eyebrow">V Campeonato Nacional de Debate</div><div class="page-title">Exportar Acreditaciones</div></div>
+      <div class="ph-actions">
+        <button class="btn btn-teal" onclick="exportAll()">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Exportar Todo
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px">
+      <div class="sc c1">
+        <div class="sc-label">Total Acreditados</div>
+        <div class="sc-num" id="exp-total-ok">0</div>
+        <div class="sc-sub">de <span id="exp-total-all">0</span> registrados</div>
+      </div>
+      <div class="sc c4">
+        <div class="sc-label">Regionales con Check-in</div>
+        <div class="sc-num" id="exp-regs">0</div>
+      </div>
+      <div class="sc c2">
+        <div class="sc-label">Ultimo Scan</div>
+        <div style="font-family:var(--fd);font-size:16px;font-weight:700;color:var(--white);margin-top:4px" id="exp-last">Sin registros</div>
+      </div>
+    </div>
+
+    <div class="sec-title">Exportar por Regional</div>
+    <p style="font-size:13px;color:var(--g2);margin-bottom:18px">Descargue un archivo Excel para cada regional con la lista de participantes acreditados.</p>
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+      <button class="btn btn-teal btn-sm" onclick="exportAll()">Descargar Todo (Excel Multi-hoja)</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportPending()">Exportar Pendientes</button>
+    </div>
+    <div class="export-grid" id="export-grid"></div>
+  </div>
+</section>
+
+<!-- TEMPLATE MODAL -->
+<div class="modal-ov" id="tpl-modal">
+  <div class="modal">
+    <div class="modal-head"><h3>Plantilla HTML — EmailJS</h3><button class="modal-close" onclick="closeModal('tpl-modal')">X</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--g2);margin-bottom:14px;line-height:1.6">Pegue este HTML en su plantilla de EmailJS. Las variables en dobles llaves se reemplazan automaticamente por cada participante.</p>
+      <div style="background:var(--bg2);border:1px solid var(--brd);border-radius:7px;padding:14px;font-family:monospace;font-size:10px;color:var(--g3);white-space:pre-wrap;line-height:1.8;overflow:auto;max-height:340px" id="tpl-preview"></div>
+      <button class="btn btn-teal btn-sm" style="margin-top:12px" onclick="copyTemplate()">Copiar Plantilla</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  FIREBASE + STATE
+// ═══════════════════════════════════════════════════════
+let db = null;
+let firebaseMode = false;
+let realtimeUnsubscribe = null;
+
+// In-memory state (also backed by localStorage for local mode)
+let STATE = {
+  participants: [],   // [{id, nombre, regional, equipo, correo, emailSent}]
+  checkins: {},       // {id: {done, ts, nombre, regional, equipo}}
+};
+
+function saveLocal() {
+  localStorage.setItem('vcnd_p', JSON.stringify(STATE.participants));
+  localStorage.setItem('vcnd_ci', JSON.stringify(STATE.checkins));
+}
+function loadLocal() {
+  STATE.participants = JSON.parse(localStorage.getItem('vcnd_p') || '[]');
+  STATE.checkins = JSON.parse(localStorage.getItem('vcnd_ci') || '{}');
+}
+
+// ── Firebase Init ──
+function initFirebase() {
+  const apiKey   = document.getElementById('fb-apikey').value.trim();
+  const domain   = document.getElementById('fb-domain').value.trim();
+  const dbUrl    = document.getElementById('fb-dburl').value.trim();
+  const pid      = document.getElementById('fb-pid').value.trim();
+  if (!apiKey || !dbUrl) { notify('Complete API Key y Database URL', 'err'); return; }
+
+  const cfg = { apiKey, authDomain: domain, databaseURL: dbUrl, projectId: pid };
+  localStorage.setItem('vcnd_fb', JSON.stringify(cfg));
+
+  try {
+    if (firebase.apps.length) firebase.app().delete();
+    firebase.initializeApp(cfg);
+    db = firebase.database();
+    firebaseMode = true;
+    document.getElementById('fb-status').innerHTML = '<span style="color:var(--ok);font-weight:700">Firebase conectado correctamente</span>';
+    document.getElementById('nav-live').style.display = 'flex';
+    notify('Firebase conectado', 'ok');
+    syncFromFirebase();
+  } catch(e) {
+    document.getElementById('fb-status').innerHTML = '<span style="color:var(--err)">Error: ' + e.message + '</span>';
+    notify('Error al conectar Firebase', 'err');
+  }
+}
+
+function useLocalMode() {
+  firebaseMode = false;
+  loadLocal();
+  notify('Modo local activado (sin tiempo real)', '');
+  updateAll();
+}
+
+function syncFromFirebase() {
+  if (!db) return;
+  // Sync participants
+  db.ref('vcnd/participants').on('value', snap => {
+    const data = snap.val() || {};
+    STATE.participants = Object.values(data);
+    updateAll();
+  });
+  // Sync checkins with real-time listener
+  db.ref('vcnd/checkins').on('value', snap => {
+    const data = snap.val() || {};
+    STATE.checkins = data;
+    const ts = new Date().toLocaleTimeString('es-DO');
+    const el = document.getElementById('rt-last');
+    if (el) el.textContent = 'Ultima actualizacion: ' + ts;
+    updateAll();
+  });
+}
+
+async function writeParticipantsToFirebase(list) {
+  if (!db) return;
+  const obj = {};
+  list.forEach(p => { obj[p.id] = p; });
+  await db.ref('vcnd/participants').set(obj);
+}
+
+async function writeCheckin(id, data) {
+  if (db && firebaseMode) {
+    await db.ref('vcnd/checkins/' + id).set(data);
+  } else {
+    STATE.checkins[id] = data;
+    saveLocal();
+    updateAll();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ROUTER
+// ═══════════════════════════════════════════════════════
+let currentView = 'home';
+
+function navigate(view, param) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  const el = document.getElementById('view-' + view);
+  if (el) el.classList.add('active');
+  currentView = view;
+  const navMap = { home:0, upload:1, dashboard:2, emails:3, export:4 };
+  const links = document.querySelectorAll('.nav-link');
+  if (navMap[view] !== undefined && links[navMap[view]]) links[navMap[view]].classList.add('active');
+  switch (view) {
+    case 'home':      renderHomeStats(); break;
+    case 'dashboard': renderDashboard(); break;
+    case 'qr':        renderQRView(param); break;
+    case 'checkin':   renderCheckinPage(param); break;
+    case 'emails':    renderEmailView(); break;
+    case 'export':    renderExportView(); break;
+  }
+  window.scrollTo(0, 0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function baseUrl() { return window.location.href.split('#')[0]; }
+function ciUrl(id) { return baseUrl() + '#checkin/' + id; }
+function qrUrl(id, sz) {
+  const url = encodeURIComponent(ciUrl(id));
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${sz||300}x${sz||300}&data=${url}&color=001F5B&bgcolor=FFFFFF&qzone=1`;
+}
+function notify(msg, type) {
+  const n = document.createElement('div');
+  n.className = 'notif ' + (type||''); n.textContent = msg;
+  document.body.appendChild(n); setTimeout(() => n.remove(), 3500);
+}
+function showModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function eA(s) { return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function updateNavBadge() {
+  document.getElementById('nav-count').textContent = STATE.participants.length + ' Registrados';
+}
+function updateAll() {
+  updateNavBadge();
+  if (currentView === 'home') renderHomeStats();
+  if (currentView === 'dashboard') renderDashboard();
+  if (currentView === 'export') renderExportView();
+}
+
+// ═══════════════════════════════════════════════════════
+//  HOME
+// ═══════════════════════════════════════════════════════
+function renderHomeStats() {
+  const ps = STATE.participants, ci = STATE.checkins;
+  const ok = Object.values(ci).filter(c => c && c.done).length;
+  document.getElementById('hs-total').textContent = ps.length;
+  document.getElementById('hs-ci').textContent = ok;
+  document.getElementById('hs-pend').textContent = ps.length - ok;
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXCEL UPLOAD
+// ═══════════════════════════════════════════════════════
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+const COL_KEYS = {
+  nombre:   ['nombre completo','nombre','name'],
+  regional: ['regional educativa','regional','region'],
+  equipo:   ['nombre del equipo','nombre equipo','equipo','team'],
+  correo:   ['correo electronico','correo electrónico','correo','email','mail'],
+};
+function findCol(headers, keys) {
+  const h = headers.map(x => String(x||'').toLowerCase().trim());
+  for (const k of keys) { const i = h.findIndex(x => x.includes(k)); if (i >= 0) return i; }
+  return -1;
+}
+
+let pendingList = [];
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type:'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header:1 });
+      if (data.length < 2) { notify('Archivo vacio', 'err'); return; }
+      const h = data[0];
+      const iN = findCol(h, COL_KEYS.nombre), iR = findCol(h, COL_KEYS.regional);
+      const iE = findCol(h, COL_KEYS.equipo),  iC = findCol(h, COL_KEYS.correo);
+      if (iN < 0 || iC < 0) { notify('No se encontraron columnas requeridas', 'err'); return; }
+      pendingList = [];
+      for (let r = 1; r < data.length; r++) {
+        const row = data[r];
+        const nombre = String(row[iN]||'').trim();
+        if (!nombre) continue;
+        pendingList.push({ id:uid(), nombre, regional:iR>=0?String(row[iR]||'').trim():'', equipo:iE>=0?String(row[iE]||'').trim():'', correo:iC>=0?String(row[iC]||'').trim():'', emailSent:false });
+      }
+      document.getElementById('preview-count').textContent = pendingList.length;
+      document.getElementById('preview-sec').style.display = 'block';
+      renderPreviewTable();
+      notify(`${pendingList.length} participantes detectados`, 'ok');
+    } catch(err) { notify('Error: ' + err.message, 'err'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function renderPreviewTable() {
+  const rows = pendingList.slice(0,10).map(p =>
+    `<tr><td>${esc(p.nombre)}</td><td>${esc(p.regional)}</td><td>${esc(p.equipo)}</td><td>${esc(p.correo)}</td></tr>`
+  ).join('');
+  const more = pendingList.length > 10 ? `<tr><td colspan="4" style="text-align:center;color:var(--g2);padding:10px;font-style:italic">...y ${pendingList.length-10} mas</td></tr>` : '';
+  document.getElementById('preview-tbl').innerHTML = `<table><thead><tr><th>Nombre Completo</th><th>Regional</th><th>Equipo</th><th>Correo</th></tr></thead><tbody>${rows}${more}</tbody></table>`;
+}
+
+async function confirmUpload() {
+  if (!pendingList.length) return;
+  const merged = [...STATE.participants, ...pendingList];
+  STATE.participants = merged;
+  if (firebaseMode && db) {
+    await writeParticipantsToFirebase(merged);
+    notify('Guardado en Firebase', 'ok');
+  } else {
+    saveLocal();
+    notify('Participantes guardados localmente', 'ok');
+  }
+  pendingList = [];
+  document.getElementById('preview-sec').style.display = 'none';
+  fileInput.value = '';
+  updateAll();
+  navigate('dashboard');
+}
+
+function cancelUpload() {
+  pendingList = [];
+  document.getElementById('preview-sec').style.display = 'none';
+  fileInput.value = '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════
+function renderDashboard() {
+  const ps = STATE.participants, ci = STATE.checkins;
+  const ok = ps.filter(p => ci[p.id] && ci[p.id].done).length;
+  const regs = [...new Set(ps.map(p => p.regional).filter(Boolean))];
+  const pct = ps.length ? Math.round(ok / ps.length * 100) : 0;
+
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="sc c1"><div class="sc-label">Total Registrados</div><div class="sc-num">${ps.length}</div></div>
+    <div class="sc c2"><div class="sc-label">Acreditados</div><div class="sc-num">${ok}</div><div class="sc-sub">${pct}% del total</div></div>
+    <div class="sc c3"><div class="sc-label">Pendientes</div><div class="sc-num">${ps.length - ok}</div></div>
+    <div class="sc c4"><div class="sc-label">Regionales</div><div class="sc-num">${regs.length}</div></div>
+    <div class="sc c5"><div class="sc-label">Tasa Acreditacion</div><div class="sc-num">${pct}<span style="font-size:22px">%</span></div></div>`;
+
+  const sel = document.getElementById('filter-reg');
+  const cv = sel.value;
+  sel.innerHTML = '<option value="">Todas las Regionales</option>' +
+    regs.sort().map(r => `<option value="${eA(r)}" ${cv===r?'selected':''}>${esc(r)}</option>`).join('');
+
+  renderTable();
+}
+
+function renderTable() {
+  const ps = STATE.participants, ci = STATE.checkins;
+  const q = (document.getElementById('search-input')?.value||'').toLowerCase().trim();
+  const fR = document.getElementById('filter-reg')?.value||'';
+  const fS = document.getElementById('filter-st')?.value||'';
+
+  if (!ps.length) {
+    document.getElementById('dash-tbl').innerHTML = `<div class="empty-st"><p>No hay participantes aun.</p><button class="btn btn-teal" onclick="navigate('upload')">Cargar Participantes</button></div>`;
+    return;
+  }
+
+  const filtered = ps.filter(p => {
+    const txt = `${p.nombre} ${p.regional} ${p.equipo} ${p.correo}`.toLowerCase();
+    const isOk = ci[p.id] && ci[p.id].done;
+    if (q && !txt.includes(q)) return false;
+    if (fR && p.regional !== fR) return false;
+    if (fS === 'ok' && !isOk) return false;
+    if (fS === 'pend' && isOk) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    document.getElementById('dash-tbl').innerHTML = `<div class="empty-st"><p>Sin resultados.</p></div>`;
+    return;
+  }
+
+  const rows = filtered.map(p => {
+    const isOk = ci[p.id] && ci[p.id].done;
+    const ts = isOk ? new Date(ci[p.id].ts).toLocaleTimeString('es-DO', { hour:'2-digit', minute:'2-digit' }) : '';
+    return `<tr>
+      <td><button class="name-btn" onclick="navigate('qr','${p.id}')">${esc(p.nombre)}</button></td>
+      <td>${esc(p.regional)}</td>
+      <td>${esc(p.equipo)}</td>
+      <td style="font-size:11px">${esc(p.correo)}</td>
+      <td>${isOk
+        ? `<span class="badge bdg-ok"><span class="dot"></span>Acreditado</span>`
+        : `<span class="badge bdg-warn">Pendiente</span>`}
+      </td>
+      <td style="font-size:11px;color:var(--g2)">${ts}</td>
+      <td><div style="display:flex;gap:5px">
+        <button class="btn btn-xs btn-outline" onclick="navigate('qr','${p.id}')">QR</button>
+        ${!isOk ? `<button class="btn btn-xs btn-green" onclick="manualCheckin('${p.id}')">Check-in</button>` : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('dash-tbl').innerHTML = `
+    <div style="font-size:11px;color:var(--g2);margin-bottom:10px">Mostrando ${filtered.length} de ${ps.length}</div>
+    <div class="tbl-wrap">
+      <table><thead><tr>
+        <th>Nombre Completo</th><th>Regional</th><th>Equipo</th>
+        <th>Correo</th><th>Estado</th><th>Hora</th><th>Acciones</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+async function manualCheckin(id) {
+  const p = STATE.participants.find(x => x.id === id);
+  if (!p) return;
+  if (STATE.checkins[id] && STATE.checkins[id].done) { notify('Ya acreditado', ''); return; }
+  const data = { done:true, ts:new Date().toISOString(), nombre:p.nombre, regional:p.regional, equipo:p.equipo };
+  await writeCheckin(id, data);
+  notify('Acreditacion registrada', 'ok');
+  if (!firebaseMode) renderDashboard();
+}
+
+// ═══════════════════════════════════════════════════════
+//  QR VIEW
+// ═══════════════════════════════════════════════════════
+function renderQRView(id) {
+  const ps = STATE.participants, p = ps.find(x => x.id === id);
+  if (!p) { document.getElementById('qr-content').innerHTML = `<div class="empty-st"><p>Participante no encontrado.</p></div>`; return; }
+  const ci = STATE.checkins, isOk = ci[p.id] && ci[p.id].done;
+  const img = qrUrl(p.id, 240), url = ciUrl(p.id);
+  document.getElementById('qr-content').innerHTML = `
+    <div class="qr-card">
+      <div class="qr-head"><div class="qr-logo">V <span>CND</span></div><div class="qr-sub">V Campeonato Nacional de Debate</div></div>
+      <div class="qr-body">
+        <div class="qr-img"><img src="${img}" alt="QR" loading="lazy"></div>
+        <div class="qr-pname">${esc(p.nombre)}</div>
+        <div class="qr-det"><strong>Regional:</strong> ${esc(p.regional||'No especificada')}</div>
+        <div class="qr-det"><strong>Equipo:</strong> ${esc(p.equipo||'No especificado')}</div>
+        <div class="qr-det"><strong>Correo:</strong> ${esc(p.correo||'No registrado')}</div>
+        <div style="margin-top:9px">${isOk
+          ? `<span class="badge bdg-ok"><span class="dot"></span>Acreditado el ${new Date(ci[p.id].ts).toLocaleString('es-DO',{dateStyle:'short',timeStyle:'short'})}</span>`
+          : `<span class="badge bdg-warn">Pendiente</span>`}
+        </div>
+        <div class="qr-div"></div>
+        <div class="qr-actions">
+          <a class="btn btn-teal btn-sm" href="${url}" target="_blank">Abrir Check-in</a>
+          <a class="btn btn-ghost btn-sm" href="${img}" download="QR_${p.nombre.replace(/\s+/g,'_')}.png" target="_blank">Descargar</a>
+          ${!isOk ? `<button class="btn btn-green btn-sm" onclick="manualCheckin('${p.id}')">Acreditar Aqui</button>` : ''}
+        </div>
+        <div class="qr-url">${url}</div>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHECK-IN PAGE (auto check-in on scan)
+// ═══════════════════════════════════════════════════════
+async function renderCheckinPage(id) {
+  // Show scanning state immediately
+  document.getElementById('checkin-content').innerHTML = buildCheckinCard(id, 'scanning');
+
+  // Find participant
+  let p = STATE.participants.find(x => x.id === id);
+
+  // If not found locally, try fetching from Firebase
+  if (!p && db) {
+    try {
+      const snap = await db.ref('vcnd/participants/' + id).get();
+      if (snap.exists()) p = snap.val();
+    } catch(e) {}
+  }
+
+  if (!p) {
+    document.getElementById('checkin-content').innerHTML = buildCheckinCard(id, 'error');
+    return;
+  }
+
+  // Update card with participant info
+  document.getElementById('checkin-content').innerHTML = buildCheckinCard(id, 'scanning', p);
+
+  // Check if already done
+  let existing = STATE.checkins[id];
+  if (!existing && db) {
+    try {
+      const snap = await db.ref('vcnd/checkins/' + id).get();
+      if (snap.exists()) existing = snap.val();
+    } catch(e) {}
+  }
+
+  if (existing && existing.done) {
+    // Already checked in
+    await new Promise(r => setTimeout(r, 600));
+    document.getElementById('checkin-content').innerHTML = buildCheckinCard(id, 'already', p, existing);
+    return;
+  }
+
+  // Auto check-in after 1 second visual delay
+  await new Promise(r => setTimeout(r, 900));
+  const data = { done:true, ts:new Date().toISOString(), nombre:p.nombre, regional:p.regional, equipo:p.equipo };
+  await writeCheckin(id, data);
+  document.getElementById('checkin-content').innerHTML = buildCheckinCard(id, 'success', p, data);
+}
+
+function buildCheckinCard(id, state, p, ci) {
+  let stateHtml = '';
+  if (state === 'scanning') {
+    stateHtml = `<div class="ci-scanning">
+      <div class="ci-scan-ring">
+        <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="color:var(--teal)">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div class="ci-scan-lbl">VERIFICANDO</div>
+      <div class="ci-scan-sub">Procesando acreditacion...</div>
+    </div>`;
+  } else if (state === 'success') {
+    const hora = ci ? new Date(ci.ts).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+    stateHtml = `<div class="ci-success">
+      <div class="ci-ok-ring">
+        <svg width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="#10B981" stroke-width="2.5"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="ci-ok-title">ACREDITADO</div>
+      <div class="ci-ok-sub">Bienvenido al V Campeonato Nacional de Debate</div>
+      <div class="ci-ok-time">${hora}</div>
+    </div>`;
+  } else if (state === 'already') {
+    const hora = ci ? new Date(ci.ts).toLocaleString('es-DO',{dateStyle:'short',timeStyle:'short'}) : '';
+    stateHtml = `<div class="ci-already">
+      <div class="ci-already-icon">
+        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#F59E0B" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="ci-already-title">YA ACREDITADO</div>
+      <div class="ci-already-sub">Registrado el ${hora}</div>
+    </div>`;
+  } else if (state === 'error') {
+    stateHtml = `<div class="ci-error">
+      <div style="font-size:36px;margin-bottom:12px">&#10007;</div>
+      <div class="ci-error-title">QR INVALIDO</div>
+      <div class="ci-error-sub">No se encontro ningun participante con este codigo.</div>
+    </div>`;
+  }
+
+  const name = p ? esc(p.nombre) : 'Verificando...';
+  const reg  = p ? esc(p.regional || 'N/A') : '---';
+  const eq   = p ? esc(p.equipo   || 'N/A') : '---';
+  const co   = p ? esc(p.correo   || 'N/A') : '---';
+  const qrSrc = id ? qrUrl(id, 110) : '';
+
+  return `<div class="ci-card">
+    <div class="ci-top">
+      <div class="ci-logo">V <span>CND</span></div>
+      <div class="ci-sys">V Campeonato Nacional de Debate</div>
+    </div>
+    <div class="ci-body">
+      <div class="ci-qr">${qrSrc ? `<img src="${qrSrc}" alt="QR">` : ''}</div>
+      <div class="ci-name">${name}</div>
+      <div class="ci-rows">
+        <div class="ci-row"><span class="lbl">Regional</span><span class="val">${reg}</span></div>
+        <div class="ci-row"><span class="lbl">Equipo</span><span class="val">${eq}</span></div>
+        <div class="ci-row"><span class="lbl">Correo</span><span class="val" style="font-size:10px">${co}</span></div>
+      </div>
+      <div id="ci-state">${stateHtml}</div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXPORT EXCEL
+// ═══════════════════════════════════════════════════════
+function renderExportView() {
+  const ps = STATE.participants, ci = STATE.checkins;
+  const checkedIn = ps.filter(p => ci[p.id] && ci[p.id].done);
+  const regs = [...new Set(checkedIn.map(p => ci[p.id]?.regional || p.regional).filter(Boolean))];
+
+  document.getElementById('exp-total-ok').textContent = checkedIn.length;
+  document.getElementById('exp-total-all').textContent = ps.length;
+  document.getElementById('exp-regs').textContent = regs.length;
+
+  // Last check-in
+  const allTs = Object.values(ci).filter(c => c && c.done).map(c => c.ts).sort().reverse();
+  if (allTs.length) {
+    document.getElementById('exp-last').textContent = new Date(allTs[0]).toLocaleTimeString('es-DO',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  // Build export grid per regional
+  const allRegs = [...new Set(ps.map(p => p.regional).filter(Boolean))].sort();
+  const grid = document.getElementById('export-grid');
+  if (!allRegs.length) { grid.innerHTML = `<div class="empty-st" style="padding:30px 0"><p>No hay participantes registrados.</p></div>`; return; }
+
+  grid.innerHTML = allRegs.map(reg => {
+    const total = ps.filter(p => p.regional === reg).length;
+    const done  = ps.filter(p => p.regional === reg && ci[p.id] && ci[p.id].done).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    return `<div class="export-card">
+      <div class="export-card-top">
+        <div class="export-card-ico">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#10B981" stroke-width="2"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <div class="export-card-name">${esc(reg)}</div>
+          <div class="export-card-count">${done} acreditados de ${total} — ${pct}%</div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border-radius:4px;height:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--teal),var(--teal2));border-radius:4px"></div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-green btn-xs" style="flex:1" onclick="exportRegional('${eA(reg)}','ok')">Acreditados</button>
+        <button class="btn btn-ghost btn-xs" style="flex:1" onclick="exportRegional('${eA(reg)}','all')">Todos</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function exportRegional(regional, mode) {
+  const ps = STATE.participants, ci = STATE.checkins;
+  let list = ps.filter(p => p.regional === regional);
+  if (mode === 'ok') list = list.filter(p => ci[p.id] && ci[p.id].done);
+
+  const rows = list.map(p => {
+    const c = ci[p.id];
+    return {
+      'Nombre Completo': p.nombre,
+      'Regional Educativa': p.regional,
+      'Nombre del Equipo': p.equipo,
+      'Correo': p.correo,
+      'Estado': c && c.done ? 'Acreditado' : 'Pendiente',
+      'Fecha y Hora': c && c.done ? new Date(c.ts).toLocaleString('es-DO') : '',
+    };
+  });
+
+  if (!rows.length) { notify('No hay datos para exportar', ''); return; }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // Column widths
+  ws['!cols'] = [{ wch:30 },{ wch:25 },{ wch:25 },{ wch:30 },{ wch:12 },{ wch:22 }];
+  XLSX.utils.book_append_sheet(wb, ws, regional.slice(0,31));
+  XLSX.writeFile(wb, `VCND_${regional.replace(/\s+/g,'_')}_${mode==='ok'?'Acreditados':'Todos'}.xlsx`);
+  notify(`Excel de "${regional}" descargado`, 'ok');
+}
+
+function exportAll() {
+  const ps = STATE.participants, ci = STATE.checkins;
+  if (!ps.length) { notify('No hay datos', ''); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet: All participants with status
+  const allRows = ps.map(p => {
+    const c = ci[p.id];
+    return { 'Nombre Completo':p.nombre, 'Regional Educativa':p.regional, 'Nombre del Equipo':p.equipo, 'Correo':p.correo, 'Estado':c&&c.done?'Acreditado':'Pendiente', 'Fecha y Hora':c&&c.done?new Date(c.ts).toLocaleString('es-DO'):'' };
+  });
+  const wsAll = XLSX.utils.json_to_sheet(allRows);
+  wsAll['!cols'] = [{ wch:30 },{ wch:25 },{ wch:25 },{ wch:30 },{ wch:12 },{ wch:22 }];
+  XLSX.utils.book_append_sheet(wb, wsAll, 'Todos');
+
+  // Sheet: Only acreditados
+  const okRows = ps.filter(p => ci[p.id] && ci[p.id].done).map(p => {
+    const c = ci[p.id];
+    return { 'Nombre Completo':p.nombre, 'Regional Educativa':p.regional, 'Nombre del Equipo':p.equipo, 'Correo':p.correo, 'Hora Check-in':new Date(c.ts).toLocaleString('es-DO') };
+  });
+  if (okRows.length) {
+    const wsOk = XLSX.utils.json_to_sheet(okRows);
+    wsOk['!cols'] = [{ wch:30 },{ wch:25 },{ wch:25 },{ wch:30 },{ wch:22 }];
+    XLSX.utils.book_append_sheet(wb, wsOk, 'Acreditados');
+  }
+
+  // One sheet per regional
+  const regs = [...new Set(ps.map(p => p.regional).filter(Boolean))].sort();
+  regs.forEach(reg => {
+    const list = ps.filter(p => p.regional === reg && ci[p.id] && ci[p.id].done);
+    if (!list.length) return;
+    const rows = list.map(p => {
+      const c = ci[p.id];
+      return { 'Nombre Completo':p.nombre, 'Nombre del Equipo':p.equipo, 'Correo':p.correo, 'Hora Check-in':new Date(c.ts).toLocaleString('es-DO') };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch:30 },{ wch:25 },{ wch:30 },{ wch:22 }];
+    XLSX.utils.book_append_sheet(wb, ws, reg.slice(0,31));
+  });
+
+  XLSX.writeFile(wb, `VCND_Acreditaciones_Completo.xlsx`);
+  notify('Excel completo descargado', 'ok');
+}
+
+function exportPending() {
+  const ps = STATE.participants, ci = STATE.checkins;
+  const list = ps.filter(p => !ci[p.id] || !ci[p.id].done);
+  if (!list.length) { notify('No hay pendientes', 'ok'); return; }
+  const rows = list.map(p => ({ 'Nombre Completo':p.nombre, 'Regional':p.regional, 'Equipo':p.equipo, 'Correo':p.correo }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{ wch:30 },{ wch:25 },{ wch:25 },{ wch:30 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Pendientes');
+  XLSX.writeFile(wb, 'VCND_Pendientes.xlsx');
+  notify('Excel de pendientes descargado', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════
+//  EMAILS
+// ═══════════════════════════════════════════════════════
+function renderEmailView() {
+  const cfg = JSON.parse(localStorage.getItem('vcnd_ejs')||'{}');
+  if (cfg.key)      document.getElementById('ejs-key').value      = cfg.key;
+  if (cfg.service)  document.getElementById('ejs-service').value  = cfg.service;
+  if (cfg.template) document.getElementById('ejs-template').value = cfg.template;
+  const ps = STATE.participants;
+  if (!ps.length) { document.getElementById('email-list').innerHTML = `<div class="empty-st"><p>Cargue participantes primero.</p></div>`; return; }
+  document.getElementById('email-list').innerHTML = ps.map(p => `
+    <div class="email-row" id="erow-${p.id}">
+      <div><div class="ern">${esc(p.nombre)}</div><div class="erd">${esc(p.correo)}</div></div>
+      <div class="erd">${esc(p.regional)}</div>
+      <span class="badge ${p.emailSent?'bdg-ok':'bdg-teal'}" id="est-${p.id}">${p.emailSent?'Enviado':'Pendiente'}</span>
+      <button class="btn btn-teal btn-xs" onclick="sendOne('${p.id}')">Enviar</button>
+    </div>`).join('');
+}
+
+function saveEmailConfig() {
+  const k = document.getElementById('ejs-key').value.trim();
+  const s = document.getElementById('ejs-service').value.trim();
+  const t = document.getElementById('ejs-template').value.trim();
+  if (!k||!s||!t) { notify('Complete todos los campos', 'err'); return; }
+  localStorage.setItem('vcnd_ejs', JSON.stringify({ key:k, service:s, template:t }));
+  emailjs.init(k); notify('Configuracion guardada', 'ok');
+}
+
+async function sendOne(id) {
+  const cfg = JSON.parse(localStorage.getItem('vcnd_ejs')||'{}');
+  if (!cfg.key) { notify('Configure EmailJS primero', 'err'); return; }
+  const ps = STATE.participants; const idx = ps.findIndex(x => x.id === id); if (idx < 0) return;
+  const p = ps[idx], badge = document.getElementById('est-'+id);
+  if (badge) badge.textContent = 'Enviando...';
+  try {
+    emailjs.init(cfg.key);
+    await emailjs.send(cfg.service, cfg.template, { to_name:p.nombre, to_email:p.correo, regional:p.regional, equipo:p.equipo, qr_image_url:qrUrl(p.id,300), checkin_url:ciUrl(p.id) });
+    ps[idx].emailSent = true;
+    if (firebaseMode && db) db.ref('vcnd/participants/'+id+'/emailSent').set(true);
+    else { STATE.participants = ps; saveLocal(); }
+    if (badge) { badge.className = 'badge bdg-ok'; badge.textContent = 'Enviado'; }
+    notify(`Enviado a ${p.nombre}`, 'ok');
+  } catch(e) {
+    if (badge) { badge.className = 'badge bdg-err'; badge.textContent = 'Error'; }
+    notify('Error: '+(e.text||e.message||'Verifique configuracion'), 'err');
+  }
+}
+
+async function sendAllEmails() {
+  const cfg = JSON.parse(localStorage.getItem('vcnd_ejs')||'{}');
+  if (!cfg.key||!cfg.service||!cfg.template) { notify('Configure EmailJS primero', 'err'); return; }
+  const ps = STATE.participants; if (!ps.length) { notify('No hay participantes', 'err'); return; }
+  emailjs.init(cfg.key);
+  const prog = document.getElementById('email-prog');
+  const bar = document.getElementById('eprog-bar');
+  const txt = document.getElementById('eprog-txt');
+  prog.style.display = 'block'; let sent = 0;
+  for (let i = 0; i < ps.length; i++) {
+    const p = ps[i]; txt.textContent = `${i+1}/${ps.length}`; bar.style.width = ((i+1)/ps.length*100)+'%';
+    try {
+      await emailjs.send(cfg.service, cfg.template, { to_name:p.nombre, to_email:p.correo, regional:p.regional, equipo:p.equipo, qr_image_url:qrUrl(p.id,300), checkin_url:ciUrl(p.id) });
+      ps[i].emailSent = true; sent++;
+      const b = document.getElementById('est-'+p.id); if (b) { b.className='badge bdg-ok'; b.textContent='Enviado'; }
+    } catch(e) { const b = document.getElementById('est-'+p.id); if (b) { b.className='badge bdg-err'; b.textContent='Error'; } }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  STATE.participants = ps;
+  if (!firebaseMode) saveLocal();
+  prog.style.display = 'none';
+  notify(`${sent} de ${ps.length} enviados`, sent===ps.length?'ok':'');
+}
+
+// ── Email Template ──
+const EMAIL_TPL = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;margin:0;padding:0;background:#0A0A0F;}
+  .wrap{max-width:600px;margin:0 auto;background:#111520;border:1px solid rgba(0,212,200,.15);}
+  .header{background:#07090F;padding:36px;text-align:center;border-bottom:2px solid #00D4C8;}
+  .logo{font-size:36px;font-weight:900;color:#fff;letter-spacing:5px;}
+  .logo span{color:#00D4C8;}
+  .logo-sub{font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.3);margin-top:6px;text-transform:uppercase;}
+  .body{padding:40px 36px;}
+  .body p{color:rgba(255,255,255,.7);line-height:1.75;font-size:15px;}
+  .name{font-size:24px;font-weight:bold;color:#00D4C8;margin:20px 0 8px;letter-spacing:1px;}
+  .qr-box{text-align:center;margin:32px 0;}
+  .qr-box img{width:260px;height:260px;background:#fff;padding:12px;border-radius:8px;}
+  .warning{background:rgba(0,212,200,.07);border:1px solid rgba(0,212,200,.22);border-left:3px solid #00D4C8;padding:16px 20px;border-radius:6px;margin:24px 0;font-size:14px;color:#00D4C8;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+  .drow{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);padding:10px 16px;border-radius:6px;margin-bottom:8px;font-size:13px;color:rgba(255,255,255,.55);}
+  .drow strong{color:rgba(255,255,255,.8);}
+  .footer{background:#07090F;border-top:1px solid rgba(0,212,200,.12);padding:22px;text-align:center;}
+  .footer p{color:rgba(255,255,255,.2);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo">V <span>CND</span></div>
+    <div class="logo-sub">Sistema de Acreditacion</div>
+  </div>
+  <div class="body">
+    <p>Estimado/a,</p>
+    <div class="name">{{to_name}}</div>
+    <p>NOS COMPLACE INFORMARLE EL ENVIO DE SU QR PARA LO QUE SERA EL SISTEMA DE ACREDITACION DEL <strong style="color:#fff">V CAMPEONATO NACIONAL DE DEBATE (V CND)</strong>.</p>
+    <p>A continuacion encontrara su codigo QR personal de acreditacion:</p>
+    <div class="qr-box"><img src="{{qr_image_url}}" alt="Codigo QR"></div>
+    <div class="warning">FAVOR NO UTILIZARLO SINO EN EL EVENTO. DE LO CONTRARIO NO PODRA ENTRAR.</div>
+    <div class="drow"><strong>Regional:</strong> {{regional}}</div>
+    <div class="drow"><strong>Equipo:</strong> {{equipo}}</div>
+    <p style="margin-top:20px">Este codigo es personal e intransferible. Al escanearlo quedara registrada su acreditacion automaticamente.</p>
+    <p style="margin-top:14px;color:rgba(255,255,255,.3);font-size:13px">Ministerio de Educacion de la Republica Dominicana</p>
+  </div>
+  <div class="footer"><p>V Campeonato Nacional de Debate — Sistema de Acreditacion</p></div>
+</div>
+</body>
+</html>`;
+
+function showTemplateModal() { document.getElementById('tpl-preview').textContent = EMAIL_TPL; showModal('tpl-modal'); }
+function copyTemplate() { navigator.clipboard.writeText(EMAIL_TPL).then(() => notify('Plantilla copiada', 'ok')); }
+
+// ═══════════════════════════════════════════════════════
+//  HASH ROUTING
+// ═══════════════════════════════════════════════════════
+function handleHash() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#checkin/')) {
+    navigate('checkin', hash.slice('#checkin/'.length));
+  } else if (hash.startsWith('#qr/')) {
+    navigate('qr', hash.slice('#qr/'.length));
+  } else {
+    navigate('home');
+  }
+}
+
+window.addEventListener('hashchange', handleHash);
+window.addEventListener('load', () => {
+  // Load Firebase config if saved
+  const fbCfg = localStorage.getItem('vcnd_fb');
+  if (fbCfg) {
+    try {
+      const c = JSON.parse(fbCfg);
+      document.getElementById('fb-apikey').value = c.apiKey||'';
+      document.getElementById('fb-domain').value = c.authDomain||'';
+      document.getElementById('fb-dburl').value = c.databaseURL||'';
+      document.getElementById('fb-pid').value = c.projectId||'';
+      // Auto-reconnect
+      firebase.initializeApp(c);
+      db = firebase.database();
+      firebaseMode = true;
+      document.getElementById('nav-live').style.display = 'flex';
+      document.getElementById('fb-status').innerHTML = '<span style="color:var(--ok);font-weight:700">Firebase reconectado</span>';
+      syncFromFirebase();
+    } catch(e) {
+      loadLocal();
+    }
+  } else {
+    loadLocal();
+  }
+
+  // Load EmailJS config
+  const ejsCfg = JSON.parse(localStorage.getItem('vcnd_ejs')||'{}');
+  if (ejsCfg.key) {
+    try { emailjs.init(ejsCfg.key); } catch(e) {}
+  }
+
+  handleHash();
+  updateNavBadge();
+});
+</script>
+</body>
+</html>
